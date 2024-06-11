@@ -22,4 +22,4 @@ We use the Gnosis Safe contracts as a library. These contracts are licensed unde
 All other code in this repository is licensed under [MIT](https://github.com/sphinx-labs/sphinx/blob/develop/LICENSE).
 
 ## Disclaimer
-The code and contracts provided in this and the Sphinx plugins monorepo are provided *as is* and with no guarantees of reliability, security or ongoing maintenance. You are responsible for your usage of Sphinx.
+The code and contracts provided in this and the Sphinx plugins monorepo are provided *as is* and with no guarantees of reliability, security, or ongoing maintenance. You are responsible for your usage of Sphinx.
