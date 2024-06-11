@@ -1,0 +1,8 @@
+mutation AddSignature($input: AddMultiChainDeploymentSignatureInput!) {
+  AddMultiChainDeploymentSignature(input: $input) {
+    treeSigners {
+      signer
+      signed
+    }
+  }
+}

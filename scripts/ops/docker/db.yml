@@ -1,0 +1,27 @@
+version: "3"
+
+services:
+  localstack:
+    container_name: "localstack-standalone"
+    image: localstack/localstack
+    ports:
+      - "127.0.0.1:4566:4566"            # LocalStack Gateway
+      - "127.0.0.1:4510-4559:4510-4559"  # external services port range
+    environment:
+      - DEBUG=${DEBUG:-0}
+    volumes:
+      - "./${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+  db:
+    image: "postgres:13"
+    command: -c 'max_connections=200'
+    container_name: "my_postgres_standalone"
+    environment:
+      POSTGRES_PASSWORD: "my_password"
+    ports:
+      - "54320:5432"
+    volumes:
+      - my_dbdata:/var/lib/postgresql/data
+
+volumes:
+  my_dbdata:

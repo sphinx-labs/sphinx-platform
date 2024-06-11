@@ -1,0 +1,99 @@
+version: "3"
+
+x-common-network-config: &common-network-config
+  dns:
+    - 10.0.2.20
+  networks:
+    - ls
+
+x-common-config: &common-config
+  env_file:
+    - ../../../.env
+  depends_on:
+    - init
+  command: yarn start
+  platform: linux/arm64
+  environment:
+    POSTGRES_PRISMA_URL: postgres://postgres:my_password@db:5432/test
+    LOCAL_ANVIL_DOCKER: false
+    LOCAL_ANVIL: false
+    LOCAL_S3: true
+    LOCALSTACK_URL: localstack
+
+networks:
+  ls:
+    ipam:
+      config:
+        - subnet: 10.0.2.0/24
+
+services:
+  localstack:
+    container_name: "${LOCALSTACK_DOCKER_NAME:-localstack-main}"
+    image: localstack/localstack
+    ports:
+      - "127.0.0.1:4566:4566"
+      - "127.0.0.1:4510-4559:4510-4559"
+    environment:
+      - DEBUG=${DEBUG:-0}
+    volumes:
+      - "./${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      ls:
+        # Set the container IP address in the 10.0.2.0/24 subnet
+        ipv4_address: 10.0.2.20
+  db:
+    image: "postgres:13"
+    command: -c 'max_connections=200'
+    container_name: "my_postgres"
+    environment:
+      POSTGRES_PASSWORD: "my_password"
+    ports:
+      - "54320:5432"
+    <<: *common-network-config
+    volumes:
+      - my_dbdata:/var/lib/postgresql/data
+
+  init:
+    depends_on:
+      - db
+      - localstack
+    image: "pdxpate/init:latest"
+    env_file:
+      - ../../../.env
+    command: yarn start
+    dns:
+      # Set the DNS server to be the LocalStack container
+      - 10.0.2.20
+    networks:
+      - ls
+    environment:
+      POSTGRES_PRISMA_URL: postgres://postgres:my_password@db:5432/test
+      LOCAL_ANVIL_DOCKER: false
+      LOCAL_ANVIL: false
+      LOCALSTACK_URL: localstack
+      LOCAL_S3: true
+      INIT_DEPLOY_SYSTEM: false
+
+  executor:
+    image: "pdxpate/executor:latest"
+    <<: [*common-config, *common-network-config]
+    ports:
+      - "7300:7300"
+  relayer:
+    image: "pdxpate/relayer:latest"
+    <<: [*common-config, *common-network-config]
+    ports:
+      - "7301:7301"
+  artifact-generator:
+    image: "pdxpate/artifact-generator:latest"
+    <<: [*common-config, *common-network-config]
+    ports:
+      - "7302:7302"
+  contract-verifier:
+    image: "pdxpate/contract-verifier:latest"
+    <<: [*common-config, *common-network-config]
+    ports:
+      - "7303:7303"
+volumes:
+  my_dbdata:

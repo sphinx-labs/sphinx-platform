@@ -1,0 +1,144 @@
+import {
+  ExecutionMode,
+  SphinxJsonRpcProvider,
+  deploySphinxSystem,
+  fetchNameForNetwork,
+} from '@sphinx-labs/core'
+import {
+  fetchAWSS3Client,
+  fetchPrismaClient,
+  seedDB,
+} from '@sphinx-managed/utilities'
+import { AbiCoder, ethers } from 'ethers'
+
+const relayers = [
+  '0x42761FAcF5e6091fcA0e38F450adfB1E22bD8c3C',
+  '0xC034550B542b83BA1De312b21d1C94a9a52B1595',
+  '0x808923399391944164220074Ef3Cc6ad4701526f',
+]
+const owner = '0x9fd58Bf0F2E6125Ffb0CBFa9AE91893Dbc1D5c51'
+const initializer = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
+const setBalances = [owner, initializer, ...relayers]
+
+const createBucket = (s3: AWS.S3, bucketParams: any) => {
+  s3.createBucket(bucketParams, function (err, data) {
+    if (err) {
+      console.log('Error', err)
+    } else {
+      console.log('Bucket Created Successfully', data.Location)
+    }
+  })
+}
+
+const createBucketIfNotExists = (
+  s3: AWS.S3,
+  bucketName: string,
+  bucketParams: any
+) => {
+  s3.headBucket({ Bucket: bucketName }, function (err, data) {
+    if (err && err.code === 'NotFound') {
+      console.log('Bucket not found, creating it...')
+      createBucket(s3, bucketParams)
+    } else if (err) {
+      console.log('Error', err)
+    } else {
+      console.log('Bucket exists, proceeding with operations...')
+    }
+  })
+}
+
+// This is only required to set the relayer, so we can remove it after we do a release with the latest executor version
+const init = async () => {
+  if (process.env.INIT_DEPLOY_SYSTEM === 'true') {
+    const chainIds = [1, 10, 42161, 11155111, 11155420, 421614]
+    const networks = chainIds.map((id) => {
+      const baseUrl =
+        process.env.LOCAL_ANVIL_DOCKER === 'true'
+          ? fetchNameForNetwork(BigInt(id))
+          : '127.0.0.1'
+      return `http://${baseUrl}:${42000 + (id % 1000)}`
+    })
+
+    await Promise.all(
+      networks.map(async (network) => {
+        const provider = new SphinxJsonRpcProvider(network)
+        const signer = new ethers.Wallet(
+          '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+          provider as any
+        )
+
+        for (const address of [...setBalances]) {
+          // set balance of initializer
+          await provider.send('anvil_setBalance', [
+            address,
+            AbiCoder.defaultAbiCoder().encode(
+              ['uint'],
+              [ethers.parseEther('10000')]
+            ),
+          ])
+        }
+
+        return deploySphinxSystem(
+          provider,
+          signer as any,
+          relayers,
+          ExecutionMode.Platform,
+          true
+        )
+      })
+    )
+  }
+
+  if (process.env.LOCAL_S3 === 'true') {
+    const s3 = await fetchAWSS3Client()
+    const deploymentConfigBucket = {
+      Bucket: 'sphinx-compiler-configs',
+      // CreateBucketConfiguration: {
+      //   LocationConstraint: 'us-east-1',
+      // },
+    }
+    console.log(deploymentConfigBucket)
+    createBucketIfNotExists(
+      s3,
+      'sphinx-compiler-configs',
+      deploymentConfigBucket
+    )
+
+    const artifactBucket = {
+      Bucket: 'sphinx-artifacts',
+      // CreateBucketConfiguration: {
+      //   LocationConstraint: 'us-east-1',
+      // },
+    }
+    console.log(artifactBucket)
+    createBucketIfNotExists(s3, 'sphinx-artifacts', artifactBucket)
+  }
+
+  const prisma = await fetchPrismaClient()
+  const orgs = await prisma.organizations.findMany()
+
+  if (orgs.length === 0) {
+    if (!process.env.SPHINX_ORG_USERS) {
+      throw new Error('no SPHINX_ORG_USERS found')
+    }
+
+    if (!process.env.SPHINX_API_KEY) {
+      throw new Error('no SPHINX_ORG_USERS found')
+    }
+
+    if (!process.env.SPHINX_ORG_ID) {
+      throw new Error('no SPHINX_ORG_ID found')
+    }
+
+    const users = process.env.SPHINX_ORG_USERS.split(',')
+    await seedDB(
+      prisma,
+      users,
+      process.env.SPHINX_API_KEY,
+      process.env.SPHINX_ORG_ID
+    )
+  }
+}
+
+init()
+export {}

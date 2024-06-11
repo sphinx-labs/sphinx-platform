@@ -1,0 +1,87 @@
+query GetUser {
+  user {
+    id
+    role
+    organization {
+      id
+      created
+      modified
+      teammates {
+        id
+        email
+        role
+      }
+      invites {
+        id
+        email
+        role
+        signedUp
+      }
+      apiKeys {
+        apiKey
+      }
+      multiChainDeployments {
+        id
+        created
+        modified
+        status
+        treeRoot
+        isTestnet
+        totalTxs
+        project {
+          threshold
+          projectOwners {
+            ownerAddress
+          }
+        }
+        treeChainStatus {
+          id
+          leavesExecuted
+          numLeaves
+          status
+          network {
+            id
+            name
+            displayName
+          }
+          projectDeployment {
+            status
+            failed
+            failureReason
+            project {
+              name
+            }
+            errorCode
+            contracts {
+              id
+              referenceName
+              contractName
+              address
+              projectVerification {
+                explorerVerifications {
+                  status
+                  explorer
+                }
+              }
+            }
+          }
+        }
+        treeSigners {
+          signer
+          signed
+          isProposer
+        }
+      }
+      projects {
+        id
+        created
+        modified
+        name
+        safeDeploymentStrategy {
+          address
+          safeName
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+mutation Invite($input: InviteTeammateInput!) {
+  InviteTeammate(input: $input) {
+    teammates {
+      email
+      role
+    }
+    invites {
+      id
+      email
+      role
+      signedUp
+    }
+  }
+}

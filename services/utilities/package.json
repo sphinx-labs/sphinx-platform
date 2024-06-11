@@ -1,0 +1,41 @@
+{
+  "name": "@sphinx-managed/utilities",
+  "version": "1.0.0",
+  "author": "Ryan Pate",
+  "license": "MIT",
+  "private": true,
+  "description": "Sphinx Microservice Utilities",
+  "main": "./dist/index.js",
+  "types": "./dist/index.js",
+  "files": [
+    "./dist/*"
+  ],
+  "scripts": {
+    "build:prod": "yarn copy-prisma && yarn generate && yarn build:ts",
+    "build:services": "yarn build:prod",
+    "build:ts": "tsc -p ./tsconfig.json",
+    "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
+    "lint": "yarn lint:fix && yarn lint:check",
+    "lint:fix": "yarn lint:ts:fix",
+    "lint:check": "yarn lint:ts:check",
+    "lint:ts:fix": "yarn lint:ts:check --fix",
+    "lint:ts:check": "eslint . --max-warnings=0",
+    "pre-commit": "lint-staged",
+    "copy-prisma": "rm -rf ./prisma && cp -r ../../website/server/prisma ./prisma",
+    "generate": "prisma generate --schema ./prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@eth-optimism/common-ts": "^0.7.1",
+    "aws-sdk": "^2.1638.0",
+    "@infisical/sdk": "^2.1.8",
+    "dotenv": "^16.3.1",
+    "@prisma/client": "^5.0.0",
+    "prisma": "^5.0.0",
+    "@pothos/plugin-prisma": "^3.39.0",
+    "@sphinx-labs/core": "^0.26.0",
+    "@sphinx-labs/contracts": "^0.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.5"
+  }
+}

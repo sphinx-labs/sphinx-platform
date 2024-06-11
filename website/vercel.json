@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "pages/api/propose/index.ts": {
+      "maxDuration": 60
+    }
+  }
+}

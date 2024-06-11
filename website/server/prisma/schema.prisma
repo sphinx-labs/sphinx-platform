@@ -1,0 +1,580 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+generator pothos {
+  provider = "prisma-pothos-types"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("POSTGRES_PRISMA_URL")
+  directUrl         = env("POSTGRES_URL_NON_POOLING")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model Organizations {
+  id                    String                  @id @default(cuid())
+  created               DateTime                @default(now())
+  modified              DateTime                @updatedAt
+  teammates             User[]
+  apiKeys               ApiKeys[]
+  projects              Projects[]
+  projectDeployments    ProjectDeployments[]
+  multiChainDeployments MultiChainDeployments[]
+  invites               Invites[]
+  deploymentConfigs     DeploymentConfigs[]
+
+  @@map("organizations")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  created       DateTime       @default(now())
+  modified      DateTime       @updatedAt
+  image         String?
+  name          String?
+  email         String?        @unique
+  emailVerified DateTime?
+  orgId         String?        @map("org_id")
+  role          Roles          @default(owner)
+  organization  Organizations? @relation(fields: [orgId], references: [id])
+  accounts      Account[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+enum SafeDeploymentMethod {
+  // Fully deployed through Sphinx with consistent addresses on all networks
+  first_party_consistent
+  // Only for projects deployed using our pre audit contract setup
+  // We do not support deploying any projects with this strategy
+  pre_audit
+}
+
+model SafeDeploymentStrategy {
+  id               String               @id @default(cuid())
+  created          DateTime             @default(now())
+  modified         DateTime             @updatedAt
+  deploymentMethod SafeDeploymentMethod @default(first_party_consistent) @map("deployment_method")
+  address          String?              @map("consistent_address")
+  projectId        String               @unique @map("project_id")
+  safeName         String?              @map("safe_identifier")
+  threshold        Int?
+  salt             String?
+  safeOwners       SafeOwners[]
+  project          Projects             @relation(fields: [projectId], references: [id])
+
+  @@map("safe_deployment_strategy")
+}
+
+model Projects {
+  id                     String                  @id @default(cuid())
+  created                DateTime                @default(now())
+  modified               DateTime                @updatedAt
+  name                   String
+  orgId                  String                  @map("org_id")
+  organization           Organizations           @relation(fields: [orgId], references: [id])
+  projectDeployments     ProjectDeployments[]
+  contracts              Contracts[]
+  projectNetworks        ProjectNetworks[]
+  multichainDeployments  MultiChainDeployments[]
+  DeploymentArtifacts    DeploymentArtifacts[]
+  safeDeploymentStrategy SafeDeploymentStrategy?
+  threshold              Int
+  salt                   String                  @default("0")
+  projectOwners          SafeOwners[]
+
+  @@unique([name, id])
+  @@unique([name, orgId])
+  @@map("projects")
+}
+
+model SafeOwners {
+  id                       String                  @id @default(cuid())
+  created                  DateTime                @default(now())
+  modified                 DateTime                @updatedAt
+  projectId                String                  @map("project_id")
+  ownerAddress             String                  @map("owner_address")
+  project                  Projects                @relation(fields: [projectId], references: [id])
+  safeDeploymentStrategy   SafeDeploymentStrategy? @relation(fields: [safeDeploymentStrategyId], references: [id])
+  safeDeploymentStrategyId String?
+
+  @@map("registration_owners")
+}
+
+model ProjectNetworks {
+  id                 String               @id @default(cuid())
+  name               String
+  projectId          String
+  chainId            Int
+  registered         Boolean
+  safeAddress        String               @map("safe_address")
+  moduleAddress      String               @map("module_address")
+  project            Projects             @relation(fields: [name, projectId], references: [name, id], onDelete: Cascade, onUpdate: Cascade)
+  network            Networks             @relation(fields: [chainId], references: [id])
+  contracts          Contracts[]
+  projectDeployments ProjectDeployments[]
+
+  @@unique([projectId, chainId])
+  @@map("project_networks")
+}
+
+model Networks {
+  id              Int                  @id
+  created         DateTime             @default(now())
+  modified        DateTime             @updatedAt
+  name            String               @unique
+  displayName     String               @map("display_name")
+  deprecated      Boolean              @default(false)
+  deployments     ProjectDeployments[]
+  contracts       Contracts[]
+  relayRequests   RelayRequests[]
+  treeChainStatus TreeChainStatus[]
+  projectNetworks ProjectNetworks[]
+
+  @@map("networks")
+}
+
+model Contracts {
+  id                    String                @id @default(cuid())
+  created               DateTime              @default(now())
+  modified              DateTime              @updatedAt
+  referenceName         String                @map("reference_name")
+  contractName          String                @map("contract_name")
+  address               String
+  deploymentId          String                @map("deployment_id")
+  projectId             String                @map("project_id")
+  chainId               Int                   @map("chain_id")
+  projectVerificationId String?               @map("project_verification_id")
+  projectVerification   ProjectVerifications? @relation(fields: [projectVerificationId], references: [id])
+  projectDeployment     ProjectDeployments    @relation(fields: [deploymentId, chainId], references: [deploymentId, chainId])
+  project               Projects              @relation(fields: [projectId], references: [id])
+  network               Networks              @relation(fields: [chainId], references: [id])
+  projectNetwork        ProjectNetworks?      @relation(fields: [projectId, chainId], references: [projectId, chainId])
+
+  @@unique([address, chainId])
+  @@map("contracts")
+}
+
+model MultiChainDeployments {
+  id                            String                     @id @default(cuid())
+  orgId                         String                     @map("org_id")
+  created                       DateTime                   @default(now())
+  modified                      DateTime                   @updatedAt
+  treeRoot                      String                     @unique @map("tree_root")
+  projectId                     String                     @map("project_id")
+  isTestnet                     Boolean                    @map("is_testnet")
+  totalTxs                      Int                        @default(0) @map("total_txs")
+  probono                       Boolean                    @default(false)
+  previousCompletedDeploymentId String?                    @map("previous_completed_deployment_id")
+  previousDeployment            MultiChainDeployments?     @relation("previous_deployment", fields: [previousCompletedDeploymentId], references: [id])
+  status                        MultichainDeploymentStatus @default(proposed)
+  organization                  Organizations              @relation(fields: [orgId], references: [id])
+  treeSigners                   TreeSigners[]
+  treeChainStatus               TreeChainStatus[]
+  projectDeployments            ProjectDeployments[]
+  relayRequests                 RelayRequests[]
+  transactionCosts              TransactionCosts[]
+  project                       Projects                   @relation(fields: [projectId], references: [id], onUpdate: Cascade)
+  artifact                      DeploymentArtifacts?
+  nextDeployment                MultiChainDeployments[]    @relation("previous_deployment")
+
+  @@map("multichain_deployments")
+}
+
+model DeploymentArtifacts {
+  id                     String                @id @default(cuid())
+  multichainDeploymentId String                @unique @map("multichain_deployment_id")
+  projectId              String                @map("project_id")
+  created                DateTime              @default(now())
+  modified               DateTime              @updatedAt
+  multiChainDeployments  MultiChainDeployments @relation(fields: [multichainDeploymentId], references: [id])
+  project                Projects              @relation(fields: [projectId], references: [id])
+
+  @@map("deployment_artifacts")
+}
+
+model ExplorerVerifications {
+  id                    String                     @id @default(cuid())
+  created               DateTime                   @default(now())
+  modified              DateTime                   @updatedAt
+  status                ExplorerVerificationStatus
+  explorer              Blockexplorer
+  tries                 Int
+  lastWaitPeriodMs      Int                        @default(5000) @map("last_wait_period_ms")
+  nextTry               DateTime                   @default(now()) @map("next_try")
+  projectVerificationId String                     @map("project_verification_id")
+  projectVerification   ProjectVerifications       @relation(fields: [projectVerificationId], references: [id])
+
+  @@unique([projectVerificationId, explorer])
+  @@map("explorer_verifications")
+}
+
+model ProjectVerifications {
+  id                    String                    @id @default(cuid())
+  created               DateTime                  @default(now())
+  modified              DateTime                  @updatedAt
+  status                ProjectVerificationStatus
+  projectDeploymentId   String                    @unique @map("project_deployment_id")
+  explorerVerifications ExplorerVerifications[]
+  projectDeployment     ProjectDeployments        @relation(fields: [projectDeploymentId], references: [id])
+  contracts             Contracts[]
+
+  @@map("project_verifications")
+}
+
+model ProjectDeployments {
+  id                     String                  @id @default(cuid())
+  created                DateTime                @default(now())
+  modified               DateTime                @updatedAt
+  deploymentId           String                  @map("on_chain_id")
+  errorCode              Int?                    @map("error_code")
+  chainId                Int                     @map("chain_id")
+  projectId              String                  @map("project_id")
+  multichainDeploymentId String                  @map("multichain_deployment_id")
+  orgId                  String                  @map("org_id")
+  tries                  Int                     @default(0)
+  lastWaitPeriodMs       Int                     @default(5000) @map("last_wait_period_ms")
+  nextTry                DateTime                @default(now()) @map("next_try")
+  failed                 Boolean                 @default(false)
+  failureReason          String?                 @map("failure_reason")
+  failureIndex           Int?                    @map("failure_index")
+  configUri              String                  @default("") @map("config_uri")
+  deploymentConfigId     String?                 @map("compiler_config_id")
+  totalTxs               Int                     @default(0) @map("total_txs")
+  projectNetwork         ProjectNetworks         @relation(fields: [projectId, chainId], references: [projectId, chainId])
+  status                 ProjectDeploymentStatus @default(approved)
+  project                Projects                @relation(fields: [projectId], references: [id])
+  network                Networks                @relation(fields: [chainId], references: [id])
+  multichainDeployment   MultiChainDeployments   @relation(fields: [multichainDeploymentId], references: [id])
+  treeChainStatus        TreeChainStatus?        @relation(fields: [multichainDeploymentId, chainId], references: [multichainDeploymentId, chainId])
+  contracts              Contracts[]
+  organizations          Organizations           @relation(fields: [orgId], references: [id])
+  transactionCosts       TransactionCosts[]
+  compilerConfig         DeploymentConfigs?      @relation(fields: [deploymentConfigId], references: [id])
+  projectVerification    ProjectVerifications?
+
+  @@unique([deploymentId, chainId])
+  @@unique([multichainDeploymentId, chainId])
+  @@map("project_deployments")
+}
+
+model TreeChainStatus {
+  id                     String                @id @default(cuid())
+  created                DateTime              @default(now())
+  modified               DateTime              @updatedAt
+  multichainDeploymentId String                @map("multichain_deployment_id")
+  chainId                Int                   @map("chain_id")
+  leavesExecuted         Int                   @map("leaves_executed")
+  numLeaves              Int                   @map("num_leaves")
+  status                 TreeStatus
+  multichainDeployment   MultiChainDeployments @relation(fields: [multichainDeploymentId], references: [id])
+  network                Networks              @relation(fields: [chainId], references: [id])
+  projectDeployment      ProjectDeployments?
+
+  @@unique([multichainDeploymentId, chainId])
+  @@map("tree_chain_status")
+}
+
+model TreeSigners {
+  id                     String                @id @default(cuid())
+  created                DateTime              @default(now())
+  modified               DateTime              @updatedAt
+  multichainDeploymentId String                @map("multichain_deployment_id")
+  signer                 String
+  signature              String?
+  signed                 Boolean
+  isProposer             Boolean               @default(false) @map("is_proposer")
+  multichainDeployment   MultiChainDeployments @relation(fields: [multichainDeploymentId], references: [id])
+
+  @@unique([multichainDeploymentId, signer])
+  @@map("tree_signers")
+}
+
+model ApiKeys {
+  id           String        @id @default(cuid())
+  created      DateTime      @default(now())
+  modified     DateTime      @updatedAt
+  orgId        String        @map("org_id")
+  apiKey       String        @unique @map("api_key")
+  organization Organizations @relation(fields: [orgId], references: [id])
+
+  @@map("api_keys")
+}
+
+model RelayTries {
+  id                   String        @id @default(cuid())
+  created              DateTime      @default(now())
+  modified             DateTime      @updatedAt
+  blockHash            String?       @map("block_hash")
+  blockNumber          Int?          @map("block_number")
+  data                 String?
+  gasLimit             String?       @map("gas_limit")
+  gasPrice             String?       @map("gas_price")
+  hash                 String        @unique
+  mined                Boolean
+  maxFeePerGas         String?       @map("max_fee_per_gas")
+  maxPriorityFeePerGas String?       @map("max_priority_fee_per_gas")
+  nonce                Int?
+  to                   String?
+  from                 String?
+  value                String?
+  confirmations        Int
+  gasUsed              String?       @map("gas_used")
+  status               Int?
+  fee                  String?
+  relayRequestId       String        @map("relay_request_id")
+  relayRequest         RelayRequests @relation(fields: [relayRequestId], references: [id])
+}
+
+model RelayRequests {
+  id                     String                 @id @default(cuid())
+  created                DateTime               @default(now())
+  modified               DateTime               @updatedAt
+  to                     String
+  value                  String                 @default("0")
+  data                   String?
+  gasLimit               String?                @map("gas_limit")
+  minimumActionsGasLimit String?                @map("actions_minimum_gas_limit")
+  completed              Boolean                @default(false)
+  tries                  Int                    @default(0)
+  lastWaitPeriodMs       Int                    @default(5000) @map("last_wait_period_ms")
+  nextTry                DateTime               @default(now()) @map("next_try")
+  chainId                Int                    @map("chain_id")
+  executable             Boolean
+  sphinxTxHash           String?                @map("sphinx_transaction_hash")
+  leafId                 String?                @unique @map("leaf_id")
+  actionIndex            Int?                   @map("action_index")
+  multichainDeploymentId String?                @map("multichain_deployment_id")
+  txhash                 String?
+  reverted               Boolean?
+  locked                 Boolean                @default(false)
+  type                   RelayRequestType
+  status                 RelayRequestStatus     @default(queued)
+  network                Networks               @relation(fields: [chainId], references: [id])
+  multichainDeployment   MultiChainDeployments? @relation(fields: [multichainDeploymentId], references: [id])
+  transactionCost        TransactionCosts[]
+  relayTries             RelayTries[]
+
+  @@map("relay_requests")
+}
+
+model TransactionCosts {
+  id                     String                 @id @default(cuid())
+  created                DateTime               @default(now())
+  modified               DateTime               @updatedAt
+  chainId                Int                    @map("chain_id")
+  cost                   String
+  currency               Currency
+  txHash                 String                 @map("tx_hash")
+  projectDeploymentId    String?                @map("project_deployment_id")
+  multichainDeploymentId String?                @map("multichain_deployment_id")
+  relayRequestId         String                 @map("relay_request_id")
+  relayRequests          RelayRequests          @relation(fields: [relayRequestId], references: [id])
+  multiChainDeployment   MultiChainDeployments? @relation(fields: [multichainDeploymentId], references: [id])
+  projectDeployment      ProjectDeployments?    @relation(fields: [projectDeploymentId], references: [id])
+
+  @@unique([relayRequestId, txHash])
+}
+
+model DeploymentConfigs {
+  id                 String               @id @default(cuid())
+  created            DateTime             @default(now())
+  modified           DateTime             @updatedAt
+  compilerConfig     Json?
+  hash               String               @unique
+  orgId              String
+  version            String
+  organization       Organizations        @relation(fields: [orgId], references: [id])
+  projectDeployments ProjectDeployments[]
+
+  @@map("compiler_configs")
+}
+
+model Invites {
+  id           String         @id @default(cuid())
+  created      DateTime       @default(now())
+  modified     DateTime       @updatedAt
+  email        String         @unique
+  code         String         @unique
+  role         Roles
+  signedUp     Boolean        @default(false) @map("signed_up")
+  orgId        String?        @map("org_id")
+  inviteCode   InviteCodes    @relation(fields: [code], references: [id])
+  organization Organizations? @relation(fields: [orgId], references: [id])
+
+  @@map("invites")
+}
+
+model InviteCodes {
+  id          String   @id @default(cuid())
+  sent        Boolean  @default(false)
+  used        Boolean  @default(false)
+  usedByEmail String?
+  invite      Invites?
+
+  @@map("invite_codes")
+}
+
+enum Blockexplorer {
+  Etherscan
+  Blockscout
+}
+
+enum ExplorerVerificationStatus {
+  // The deployment has been executed, but verification has not started
+  queued
+  // The verification failed after some number of tries (25)
+  failing
+  // Verification finished successfully
+  verified
+  // Verification is not supported on this block explorer for this network
+  verification_unsupported
+  // Verification on this block explorer was not supported when this project was deployed
+  unverified
+}
+
+enum ProjectVerificationStatus {
+  // Still waiting for the deployment to be executed
+  pending
+  // Verification ongoing
+  verifying
+  // Verification finished (includes failures)
+  completed
+}
+
+enum RelayRequestStatus {
+  queued
+  attempting
+  queuedForCancelation
+  canceled
+  completed
+}
+
+enum RelayRequestType {
+  transferToEscrow
+  withdrawFromEscrow
+  executeLeaf
+  registerSphinxDeployer
+  usdcAirdrop
+  deploymentTransaction
+}
+
+enum Currency {
+  ETH
+  BNB
+  MATIC
+  xDAI
+  USDC
+  FTM
+  AVAX
+  CELO
+  MOVR
+  GLMR
+  FUSE
+  EVMOS
+  KAVA
+  OKT
+  RBTC
+  RING
+  CRAB
+  MNT
+}
+
+enum MultichainDeploymentStatus {
+  proposed
+  approved
+  funded
+  executed
+  completed
+  cancelled
+}
+
+enum ProjectDeploymentStatus {
+  approved
+  cancelled
+  executed
+}
+
+enum Roles {
+  owner
+  admin
+  user
+  developer
+  deactivated
+}
+
+enum Integration {
+  hardhat
+  foundry
+}
+
+enum TreeStatus {
+  proposed
+  executingDeployment
+  completed
+}
+
+enum TreeLeafType {
+  approveDeployment
+  cancelActiveDeployment
+  setProposer
+  createProject
+  exportProxy
+  propose
+  removeProject
+  setOrgOwner
+  setOrgOwnerThreshold
+  setProjectManager
+  setProjectOwner
+  setProjectThreshold
+  setup
+  transferDeployerOwnership
+  updateContractsInProject
+  upgradeAuthImplementation
+  upgradeManagerAndAuthImpl
+  upgradeManagerImplementation
+  withdrawEth
+}
+
+// Next-Auth
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}

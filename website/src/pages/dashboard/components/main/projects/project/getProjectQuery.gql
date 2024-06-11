@@ -1,0 +1,82 @@
+query GetProject($input: GetProjectQueryInput!) {
+  project(input: $input) {
+    id
+    created
+    modified
+    name
+    projectNetworks {
+      id
+      network {
+        displayName
+        name
+        id
+      }
+      contracts {
+        id
+        referenceName
+        contractName
+        address
+      }
+    }
+    multichainDeployments {
+      id
+      created
+      modified
+      status
+      treeRoot
+      isTestnet
+      totalTxs
+      project {
+        name
+        threshold
+        projectOwners {
+          ownerAddress
+        }
+      }
+      treeChainStatus {
+        id
+        leavesExecuted
+        numLeaves
+        status
+        network {
+          id
+          name
+          displayName
+        }
+        projectDeployment {
+          status
+          failed
+          failureReason
+          project {
+            name
+          }
+          errorCode
+          contracts {
+            id
+            referenceName
+            contractName
+            address
+            projectVerification {
+              explorerVerifications {
+                status
+                explorer
+              }
+            }
+          }
+        }
+      }
+      treeSigners {
+        signer
+        signed
+        isProposer
+      }
+    }
+    safeDeploymentStrategy {
+      address
+      safeName
+    }
+    projectOwners {
+      ownerAddress
+    }
+  }
+}

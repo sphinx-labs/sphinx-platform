@@ -1,0 +1,30 @@
+{
+  "name": "@sphinx-managed/init",
+  "version": "1.0.0",
+  "author": "Ryan Pate",
+  "license": "MIT",
+  "private": true,
+  "description": "Sphinx Local Init Script",
+  "main": "./dist/src/index",
+  "types": "./dist/src/index",
+  "files": [
+    "./dist/*"
+  ],
+  "scripts": {
+    "start": "node ./dist/index.js",
+    "build": "tsc -p ./tsconfig.json",
+    "build:services": "yarn build",
+    "build:prod": "yarn build",
+    "clean": "rimraf dist/ ./tsconfig.tsbuildinfo",
+    "build:prisma": "prisma generate --schema ./services/utilities/prisma/schema.prisma"
+  },
+  "dependencies": {
+    "ethers": "^6.7.0",
+    "@sphinx-labs/core": "^0.26.0",
+    "hardhat": "^2.20.1",
+    "@sphinx-managed/utilities": "./services/utilities"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.5"
+  }
+}

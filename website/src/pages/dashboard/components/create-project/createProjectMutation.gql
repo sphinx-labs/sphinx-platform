@@ -1,0 +1,13 @@
+mutation CreateProject($input: CreateProjectInput!) {
+  CreateProject(input: $input) {
+    name
+    threshold
+    projectOwners {
+      ownerAddress
+    }
+    safeDeploymentStrategy {
+      address
+      safeName
+    }
+  }
+}

@@ -1,0 +1,5 @@
+node_mdules
+.env*
+yarn-error.log
+terraform
+localstack-volume

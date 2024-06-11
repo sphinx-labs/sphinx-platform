@@ -1,0 +1,14 @@
+mutation UpdateTeammate($input: UpdateTeammateInput!) {
+  UpdateTeammate(input: $input) {
+    teammates {
+      email
+      role
+    }
+    invites {
+      id
+      email
+      role
+      signedUp
+    }
+  }
+}

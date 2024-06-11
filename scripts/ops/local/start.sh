@@ -1,0 +1,9 @@
+export $(grep -v '^#' .env | xargs)
+
+if [[ "${POSTGRES_PRISMA_URL}" == *"main"* || "${POSTGRES_URL_NON_POOLING}" == *"main"* ]]; then
+  echo "Whoa there, don't reset the production db you idiot!"
+  exit 1
+fi
+
+yarn start:backend
+yarn start:frontend

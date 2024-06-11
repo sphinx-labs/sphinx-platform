@@ -1,0 +1,18 @@
+[profile.default]
+ffi = true
+extra_output = ['storageLayout', 'evm.gasEstimates']
+fs_permissions = [{ access = "read-write", path = "/"}]
+allow_paths = ["/"]
+src = "__sphinx__/contracts"
+script = "__sphinx__/script"
+test = "__sphinx__/test"
+always_use_create_2_factory = true
+
+[rpc_endpoints]
+anvil = "http://127.0.0.1:8545"
+sepolia = "http://127.0.0.1:42111"
+optimism_sepolia = "http://127.0.0.1:42420"
+arbitrum_sepolia = "http://127.0.0.1:42614"
+ethereum = "http://127.0.0.1:42001"
+optimism = "http://127.0.0.1:42010"
+linea_sepolia = "http://127.0.0.1:42141"

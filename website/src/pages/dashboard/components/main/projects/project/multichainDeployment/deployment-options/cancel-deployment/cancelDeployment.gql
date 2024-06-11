@@ -1,0 +1,5 @@
+mutation CancelDeployment($input: CancelMultichainDeploymentInput!) {
+  CancelMultiChainDeployment(input: $input) {
+    status
+  }
+}
