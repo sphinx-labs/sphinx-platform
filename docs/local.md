@@ -210,6 +210,9 @@ For every network that you wish to use Sphinx on, you will need to configure an 
 
 Note that all Block Explorer API keys are *required* to be in a folder with the exact name `BlockExplorers`. All RPC URLs are *required* to be in a folder with the exact name `RPC`. All RPC URL and Block Explorer secrets must be configured to be available in the environment you chose in step 4.
 
+#### 6. Update Infisical Workspace ID and Environment
+Open `.infisical.json` and update the `workspaceId` and `defaultEnvironment` fields to match your project.
+
 ### Get a funded EOA
 You'll need to get a funded account on the networks you would like to use Sphinx on, then go to your `.env` file and set the `SPHINX_RELAYER__PRIVATE_KEYS` environment variable to equal the private key of your EOA.
 
